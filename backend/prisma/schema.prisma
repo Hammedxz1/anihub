@@ -31,6 +31,7 @@ model User {
   downloads           Download[]
   ratings             Rating[]
   comments            Comment[]
+  refreshTokens       RefreshToken[]
 
   @@index([email])
   @@index([username])
@@ -132,4 +133,16 @@ model CachedManga {
   mangaDexId String   @id
   data       Json
   cachedAt   DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
