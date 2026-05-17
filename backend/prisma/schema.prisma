@@ -7,159 +7,63 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ───────────────────────────────────────────────────────────────────
-
-enum Role {
-  USER
-  MODERATOR
-  ADMIN
-}
-
-enum MangaStatus {
-  ONGOING
-  COMPLETED
-  HIATUS
-  CANCELLED
-}
-
-enum ReadingStatus {
-  READING
-  COMPLETED
-  ON_HOLD
-  DROPPED
-  PLAN_TO_READ
-}
-
-// ─── Models ──────────────────────────────────────────────────────────────────
-
 model User {
-  id             String   @id @default(cuid())
-  username       String   @unique
-  email          String   @unique
-  passwordHash   String
-  avatar         String?
-  bio            String?
-  role           Role     @default(USER)
-  emailVerified  Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                  String            @id @default(cuid())
+  email               String            @unique
+  username            String            @unique
+  displayName         String?
+  passwordHash        String
+  avatarUrl           String?
+  bio                 String?
+  favoriteGenres      String[]
+  publicProfile       Boolean           @default(true)
+  socialTwitter       String?
+  socialAnilist       String?
+  socialMal           String?
+  stripeCustomerId    String?
+  subscriptionStatus  String            @default("free")
+  subscriptionEndDate DateTime?
+  createdAt           DateTime          @default(now())
 
-  refreshTokens  RefreshToken[]
-  library        LibraryEntry[]
-  readingProgress ReadingProgress[]
-  bookmarks      Bookmark[]
-  ratings        Rating[]
-  comments       Comment[]
+  bookmarks           Bookmark[]
+  readingList         ReadingListItem[]
+  readingProgress     ReadingProgress[]
+  downloads           Download[]
+  ratings             Rating[]
+  comments            Comment[]
 
   @@index([email])
   @@index([username])
 }
 
-model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+model Bookmark {
+  id         String   @id @default(cuid())
+  userId     String
+  mangaId    String
+  chapterId  String
+  pageNumber Int
+  note       String?
+  createdAt  DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-model Genre {
-  id    String  @id @default(cuid())
-  name  String  @unique
-  slug  String  @unique
-  manga MangaGenre[]
-}
-
-model Manga {
-  id            String      @id @default(cuid())
-  title         String
-  alternativeTitles String[] @default([])
-  slug          String      @unique
-  description   String
-  coverImage    String
-  bannerImage   String?
-  author        String
-  artist        String?
-  status        MangaStatus @default(ONGOING)
-  year          Int?
-  isAdult       Boolean     @default(false)
-  viewCount     Int         @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  genres        MangaGenre[]
-  chapters      Chapter[]
-  library       LibraryEntry[]
-  ratings       Rating[]
-  comments      Comment[]
-
-  @@index([slug])
-  @@index([status])
-  @@index([title])
-}
-
-model MangaGenre {
-  mangaId String
-  genreId String
-
-  manga   Manga  @relation(fields: [mangaId], references: [id], onDelete: Cascade)
-  genre   Genre  @relation(fields: [genreId], references: [id], onDelete: Cascade)
-
-  @@id([mangaId, genreId])
-}
-
-model Chapter {
-  id          String   @id @default(cuid())
-  mangaId     String
-  number      Float
-  title       String?
-  slug        String
-  pageCount   Int      @default(0)
-  viewCount   Int      @default(0)
-  publishedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  manga       Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
-  pages       Page[]
-  progress    ReadingProgress[]
-  bookmarks   Bookmark[]
-
-  @@unique([mangaId, number])
-  @@unique([mangaId, slug])
   @@index([mangaId])
 }
 
-model Page {
-  id        String  @id @default(cuid())
-  chapterId String
-  number    Int
-  imageUrl  String
-  width     Int?
-  height    Int?
-
-  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-
-  @@unique([chapterId, number])
-  @@index([chapterId])
-}
-
-model LibraryEntry {
-  id            String        @id @default(cuid())
+model ReadingListItem {
+  id            String   @id @default(cuid())
   userId        String
   mangaId       String
-  status        ReadingStatus @default(PLAN_TO_READ)
-  currentChapter Float?
-  isFavorite    Boolean       @default(false)
-  addedAt       DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  mangaTitle    String
+  coverUrl      String?
+  status        String
+  chaptersRead  Int      @default(0)
+  totalChapters Int?
+  addedAt       DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  manga         Manga         @relation(fields: [mangaId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, mangaId])
   @@index([userId])
@@ -168,30 +72,34 @@ model LibraryEntry {
 model ReadingProgress {
   id         String   @id @default(cuid())
   userId     String
+  mangaId    String
   chapterId  String
-  pageNumber Int      @default(1)
+  pageNumber Int
   updatedAt  DateTime @updatedAt
 
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chapter    Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 
   @@unique([userId, chapterId])
   @@index([userId])
+  @@index([mangaId])
 }
 
-model Bookmark {
+model Download {
   id         String   @id @default(cuid())
   userId     String
   chapterId  String
-  pageNumber Int
-  note       String?
+  mangaId    String
+  chapterNum String
+  mangaTitle String
+  status     String
+  filePath   String?
+  fileSize   Int?
   createdAt  DateTime @default(now())
 
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chapter    Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, chapterId, pageNumber])
   @@index([userId])
+  @@index([mangaId])
 }
 
 model Rating {
@@ -200,10 +108,8 @@ model Rating {
   mangaId   String
   score     Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  manga     Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
 
   @@unique([userId, mangaId])
   @@index([mangaId])
@@ -213,16 +119,17 @@ model Comment {
   id        String   @id @default(cuid())
   userId    String
   mangaId   String
-  parentId  String?
-  body      String
+  content   String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  manga     Manga    @relation(fields: [mangaId], references: [id], onDelete: Cascade)
-  parent    Comment? @relation("Replies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("Replies")
 
   @@index([mangaId])
   @@index([userId])
+}
+
+model CachedManga {
+  mangaDexId String   @id
+  data       Json
+  cachedAt   DateTime @default(now())
 }
