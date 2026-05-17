@@ -8,8 +8,20 @@ import {
 import type { SearchMangaOptions } from '../services/mangadex'
 import { AppError } from '../middleware/errorHandler'
 
+const SORT_PRESETS: Record<string, Record<string, 'asc' | 'desc'>> = {
+  popular:     { followedCount: 'desc' },
+  rating:      { rating: 'desc' },
+  latest:      { latestUploadedChapter: 'desc' },
+  newest:      { createdAt: 'desc' },
+  oldest:      { createdAt: 'asc' },
+  title_asc:   { title: 'asc' },
+  title_desc:  { title: 'desc' },
+  year_desc:   { year: 'desc' },
+  relevance:   { relevance: 'desc' },
+}
+
 export async function search(req: Request, res: Response) {
-  const { q, offset = '0', limit = '20', tags, status } = req.query as Record<string, string>
+  const { q, offset = '0', limit = '20', tags, status, sort } = req.query as Record<string, string>
 
   const options: SearchMangaOptions = {
     query: q,
@@ -21,6 +33,10 @@ export async function search(req: Request, res: Response) {
   const validStatuses = ['ongoing', 'completed', 'hiatus', 'cancelled'] as const
   if (status && (validStatuses as readonly string[]).includes(status)) {
     options.status = status as SearchMangaOptions['status']
+  }
+
+  if (sort && SORT_PRESETS[sort]) {
+    options.order = SORT_PRESETS[sort]
   }
 
   const results = await searchManga(options)
