@@ -1,19 +1,40 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+
+function passwordStrength(pw: string): { score: number; label: string; color: string } {
+  let score = 0
+  if (pw.length >= 8)  score++
+  if (pw.length >= 12) score++
+  if (/[A-Z]/.test(pw)) score++
+  if (/[0-9]/.test(pw)) score++
+  if (/[^A-Za-z0-9]/.test(pw)) score++
+  if (score <= 1) return { score, label: 'Weak',   color: 'bg-red-500' }
+  if (score <= 2) return { score, label: 'Fair',   color: 'bg-amber-500' }
+  if (score <= 3) return { score, label: 'Good',   color: 'bg-yellow-400' }
+  return           { score, label: 'Strong', color: 'bg-emerald-500' }
+}
 
 export default function Register() {
   const { register } = useAuth()
   const navigate = useNavigate()
 
-  const [email, setEmail] = useState('')
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [displayName, setDisplayName] = useState('')
+  const [email, setEmail]             = useState('')
+  const [username, setUsername]       = useState('')
+  const [password, setPassword]       = useState('')
+  const [confirm, setConfirm]         = useState('')
+  const [tos, setTos]                 = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [submitting, setSubmitting]   = useState(false)
+
+  const strength = useMemo(() => passwordStrength(password), [password])
+  const mismatch = confirm.length > 0 && confirm !== password
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (password !== confirm) { setError('Passwords do not match'); return }
+    if (!tos) { setError('You must accept the Terms of Service'); return }
     setError(null)
     setSubmitting(true)
     try {
@@ -37,6 +58,20 @@ export default function Register() {
 
       <form onSubmit={onSubmit} className="mt-8 space-y-4">
         <div>
+          <label className="mb-1 block text-sm text-surface-muted" htmlFor="displayName">Display Name</label>
+          <input
+            id="displayName"
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            maxLength={60}
+            autoComplete="name"
+            placeholder="How others see you (optional)"
+            className="input"
+          />
+        </div>
+
+        <div>
           <label className="mb-1 block text-sm text-surface-muted" htmlFor="email">Email</label>
           <input
             id="email"
@@ -45,7 +80,7 @@ export default function Register() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-white placeholder:text-surface-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            className="input"
           />
         </div>
 
@@ -61,7 +96,8 @@ export default function Register() {
             maxLength={30}
             pattern="^[a-zA-Z0-9_]+$"
             autoComplete="username"
-            className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-white placeholder:text-surface-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            placeholder="Letters, numbers, underscores"
+            className="input"
           />
         </div>
 
@@ -75,13 +111,62 @@ export default function Register() {
             required
             minLength={8}
             autoComplete="new-password"
-            className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-white placeholder:text-surface-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            className="input"
           />
+          {password.length > 0 && (
+            <div className="mt-2">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div
+                    key={i}
+                    className={`h-1 flex-1 rounded-full transition-colors ${
+                      i <= strength.score ? strength.color : 'bg-surface-border'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-surface-muted">{strength.label}</p>
+            </div>
+          )}
         </div>
 
-        {error && <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+        <div>
+          <label className="mb-1 block text-sm text-surface-muted" htmlFor="confirm">Confirm Password</label>
+          <input
+            id="confirm"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            autoComplete="new-password"
+            className={`input ${mismatch ? 'border-red-500 focus:border-red-500 focus:ring-red-500/40' : ''}`}
+          />
+          {mismatch && <p className="mt-1 text-xs text-red-400">Passwords do not match</p>}
+        </div>
 
-        <button type="submit" disabled={submitting} className="btn-primary w-full">
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={tos}
+            onChange={(e) => setTos(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-primary-500"
+            required
+          />
+          <span className="text-sm text-surface-muted">
+            I agree to the{' '}
+            <Link to="/terms" className="text-primary-300 hover:underline">Terms of Service</Link>
+            {' '}and{' '}
+            <Link to="/privacy" className="text-primary-300 hover:underline">Privacy Policy</Link>
+          </span>
+        </label>
+
+        {error && (
+          <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
+
+        <button type="submit" disabled={submitting || mismatch} className="btn-primary w-full">
           {submitting ? 'Creating…' : 'Create account'}
         </button>
 

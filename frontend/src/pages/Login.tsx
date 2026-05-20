@@ -8,12 +8,12 @@ interface LocationState {
 
 export default function Login() {
   const { login } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate  = useNavigate()
+  const location  = useLocation()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [email, setEmail]           = useState('')
+  const [password, setPassword]     = useState('')
+  const [error, setError]           = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   async function onSubmit(e: FormEvent) {
@@ -50,12 +50,17 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoComplete="email"
-            className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-white placeholder:text-surface-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            className="input"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-sm text-surface-muted" htmlFor="password">Password</label>
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-sm text-surface-muted" htmlFor="password">Password</label>
+            <Link to="/forgot-password" className="text-xs text-primary-300 hover:underline">
+              Forgot password?
+            </Link>
+          </div>
           <input
             id="password"
             type="password"
@@ -63,11 +68,15 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             required
             autoComplete="current-password"
-            className="w-full rounded-xl border border-surface-border bg-surface-card px-4 py-2.5 text-white placeholder:text-surface-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+            className="input"
           />
         </div>
 
-        {error && <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+        {error && (
+          <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {error}
+          </p>
+        )}
 
         <button type="submit" disabled={submitting} className="btn-primary w-full">
           {submitting ? 'Signing in…' : 'Log in'}
