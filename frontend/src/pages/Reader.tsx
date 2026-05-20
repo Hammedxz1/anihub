@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { getChapterPagesApi, getChaptersApi } from '../api/chapters'
 import { getMangaByIdApi } from '../api/manga'
 import { createBookmarkApi, deleteBookmarkApi, listBookmarksApi } from '../api/bookmarks'
@@ -152,12 +153,14 @@ export default function Reader() {
     try {
       if (currentBookmark) {
         await deleteBookmarkApi(currentBookmark.id)
+        toast.success('Bookmark removed')
       } else {
         await createBookmarkApi({ mangaId, chapterId, pageNumber: page + 1 })
+        toast.success('Bookmark saved')
       }
       qc.invalidateQueries({ queryKey: ['bookmarks'] })
     } catch {
-      /* ignore */
+      toast.error('Could not save bookmark')
     }
   }, [isAuthenticated, mangaId, currentBookmark, chapterId, page, qc])
 

@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { deleteDownloadApi, listDownloadsApi, type Download } from '../api/downloads'
+import { Skeleton } from '../components/ui/Skeleton'
 import { formatRelativeDate } from '../utils/mangadex'
 
 const MAX_STORAGE_BYTES = 500 * 1024 * 1024 // 500 MB
@@ -14,9 +16,7 @@ function formatBytes(bytes: number): string {
 
 export default function Downloads() {
   const { isPro } = useAuth()
-
   if (!isPro) return <UpgradePrompt />
-
   return <DownloadsList />
 }
 
@@ -28,7 +28,7 @@ function UpgradePrompt() {
       <p className="mt-3 text-surface-muted">
         Download chapters to read offline — available on MangaVerse Pro.
       </p>
-      <div className="mt-8 card p-6 text-left space-y-3">
+      <div className="card mt-8 space-y-3 p-6 text-left">
         {[
           'Download any chapter for offline reading',
           'Up to 500 MB local storage',
@@ -42,7 +42,7 @@ function UpgradePrompt() {
           </div>
         ))}
       </div>
-      <Link to="/subscribe" className="btn-primary mt-8 inline-flex text-base px-6 py-3">
+      <Link to="/subscribe" className="btn-primary mt-8 inline-flex px-6 py-3 text-base">
         Upgrade to Pro · $3.99/month
       </Link>
     </section>
@@ -60,7 +60,11 @@ function DownloadsList() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteDownloadApi,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['downloads'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['downloads'] })
+      toast.success('Download deleted')
+    },
+    onError: () => toast.error('Could not delete download'),
   })
 
   const completed = downloads.filter((d) => d.status === 'completed')
@@ -75,7 +79,7 @@ function DownloadsList() {
       <h1 className="font-display text-4xl tracking-wider neon-text-primary">Downloads</h1>
 
       {/* Storage bar */}
-      <div className="mt-6 card p-4">
+      <div className="card mt-6 p-4">
         <div className="flex items-center justify-between text-sm">
           <span className="text-surface-muted">Storage used</span>
           <span className="font-medium text-white">
@@ -85,7 +89,9 @@ function DownloadsList() {
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-border">
           <div
             className={`h-full rounded-full transition-all ${
-              usedPct > 80 ? 'bg-red-500' : 'bg-gradient-to-r from-primary-600 to-primary-400'
+              usedPct > 80
+                ? 'bg-red-500'
+                : 'bg-gradient-to-r from-primary-600 to-primary-400'
             }`}
             style={{ width: `${usedPct}%` }}
           />
@@ -95,7 +101,7 @@ function DownloadsList() {
       {isLoading && (
         <div className="mt-8 space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-card" />
+            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
           ))}
         </div>
       )}
@@ -113,7 +119,6 @@ function DownloadsList() {
         </div>
       )}
 
-      {/* Active downloads */}
       {pending.length > 0 && (
         <div className="mt-8">
           <h2 className="font-display text-xl tracking-wider">Downloading</h2>
@@ -125,23 +130,17 @@ function DownloadsList() {
         </div>
       )}
 
-      {/* Failed */}
       {failed.length > 0 && (
         <div className="mt-8">
           <h2 className="font-display text-xl tracking-wider text-red-300">Failed</h2>
           <div className="mt-3 space-y-2">
             {failed.map((d) => (
-              <DownloadRow
-                key={d.id}
-                download={d}
-                onDelete={() => deleteMutation.mutate(d.id)}
-              />
+              <DownloadRow key={d.id} download={d} onDelete={() => deleteMutation.mutate(d.id)} />
             ))}
           </div>
         </div>
       )}
 
-      {/* Completed */}
       {completed.length > 0 && (
         <div className="mt-8">
           <h2 className="font-display text-xl tracking-wider">
@@ -150,11 +149,7 @@ function DownloadsList() {
           </h2>
           <div className="mt-3 space-y-2">
             {completed.map((d) => (
-              <DownloadRow
-                key={d.id}
-                download={d}
-                onDelete={() => deleteMutation.mutate(d.id)}
-              />
+              <DownloadRow key={d.id} download={d} onDelete={() => deleteMutation.mutate(d.id)} />
             ))}
           </div>
         </div>
@@ -166,14 +161,14 @@ function DownloadsList() {
 function ActiveDownloadRow({ download: d }: { download: Download }) {
   return (
     <div className="card flex items-center gap-4 p-4">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{d.mangaTitle}</p>
-        <p className="text-xs text-surface-muted truncate">{d.chapterTitle}</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-white">{d.mangaTitle}</p>
+        <p className="truncate text-xs text-surface-muted">{d.chapterTitle}</p>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-border">
           <div className="h-full w-1/3 animate-pulse rounded-full bg-primary-500" />
         </div>
       </div>
-      <span className="text-xs text-surface-muted shrink-0">Downloading…</span>
+      <span className="shrink-0 text-xs text-surface-muted">Downloading…</span>
     </div>
   )
 }
@@ -187,16 +182,16 @@ function DownloadRow({
 }) {
   return (
     <div className="card flex items-center gap-4 p-4">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{d.mangaTitle}</p>
-        <p className="text-xs text-surface-muted truncate">{d.chapterTitle}</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-white">{d.mangaTitle}</p>
+        <p className="truncate text-xs text-surface-muted">{d.chapterTitle}</p>
         <div className="mt-1 flex items-center gap-2 text-xs text-surface-muted">
           {d.fileSize !== null && <span>{formatBytes(d.fileSize)}</span>}
           <span>·</span>
           <span>{formatRelativeDate(d.createdAt)}</span>
         </div>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex shrink-0 items-center gap-2">
         {d.status === 'completed' && d.filePath && (
           <Link
             to={`/read/${d.chapterId}?offline=1&m=${d.mangaId}`}
@@ -214,7 +209,7 @@ function DownloadRow({
           type="button"
           onClick={onDelete}
           aria-label="Delete download"
-          className="rounded-lg p-2 text-surface-muted hover:bg-surface-hover hover:text-red-300 transition"
+          className="rounded-lg p-2 text-surface-muted transition hover:bg-surface-hover hover:text-red-300"
         >
           ✕
         </button>

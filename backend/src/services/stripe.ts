@@ -1,14 +1,22 @@
 import Stripe from 'stripe'
 import { prisma } from '../config/database'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2026-04-22.dahlia',
-})
+// Lazy singleton — avoids crashing at startup when STRIPE_SECRET_KEY isn't set
+type StripeInstance = InstanceType<typeof Stripe>
+let _stripe: StripeInstance | null = null
+function getStripe(): StripeInstance {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) throw new Error('STRIPE_SECRET_KEY is not configured')
+    _stripe = new Stripe(key, { apiVersion: '2026-04-22.dahlia' })
+  }
+  return _stripe
+}
 
-// Derive types from the live instance so they work with both CJS and ESM entry points
-type StripeEvent = ReturnType<typeof stripe.webhooks.constructEvent>
-type StripeSubscription = Awaited<ReturnType<typeof stripe.subscriptions.retrieve>>
-type StripeInvoice = Awaited<ReturnType<typeof stripe.invoices.retrieve>>
+// Derive event/object types from instance methods (CJS-compatible)
+type StripeEvent = ReturnType<StripeInstance['webhooks']['constructEvent']>
+type StripeSubscription = Awaited<ReturnType<StripeInstance['subscriptions']['retrieve']>>
+type StripeInvoice = Awaited<ReturnType<StripeInstance['invoices']['retrieve']>>
 
 const PRICE_ID = process.env.STRIPE_PRICE_ID ?? ''
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5173'
@@ -26,7 +34,7 @@ export async function createCheckoutSession(userId: string, email: string) {
   if (user?.stripeCustomerId) {
     customerId = user.stripeCustomerId
   } else {
-    const customer = await stripe.customers.create({ email, metadata: { userId } })
+    const customer = await getStripe().customers.create({ email, metadata: { userId } })
     customerId = customer.id
     await prisma.user.update({
       where: { id: userId },
@@ -34,7 +42,7 @@ export async function createCheckoutSession(userId: string, email: string) {
     })
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     line_items: [{ price: PRICE_ID, quantity: 1 }],
@@ -49,7 +57,7 @@ export async function createCheckoutSession(userId: string, email: string) {
 // ─── Customer Portal ──────────────────────────────────────────────────────────
 
 export async function createPortalSession(stripeCustomerId: string) {
-  const session = await stripe.billingPortal.sessions.create({
+  const session = await getStripe().billingPortal.sessions.create({
     customer: stripeCustomerId,
     return_url: `${APP_URL}/account`,
   })
@@ -61,7 +69,7 @@ export async function createPortalSession(stripeCustomerId: string) {
 
 export function constructWebhookEvent(payload: Buffer, sig: string): StripeEvent {
   const secret = process.env.STRIPE_WEBHOOK_SECRET ?? ''
-  return stripe.webhooks.constructEvent(payload, sig, secret)
+  return getStripe().webhooks.constructEvent(payload, sig, secret)
 }
 
 export async function handleWebhookEvent(event: StripeEvent): Promise<void> {
@@ -125,4 +133,3 @@ export async function handleWebhookEvent(event: StripeEvent): Promise<void> {
   }
 }
 
-export { stripe }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import {
   deleteAccountApi,
@@ -31,8 +32,6 @@ export default function EditProfile() {
   const [socialMal, setSocialMal] = useState((user as { socialMal?: string } | null)?.socialMal ?? '')
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(user?.avatarUrl ?? null)
 
-  const [message, setMessage] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
@@ -67,14 +66,12 @@ export default function EditProfile() {
         socialMal: socialMal || null,
       }),
     onSuccess: async () => {
-      setMessage('Profile updated')
-      setError(null)
       await refreshUser()
       qc.invalidateQueries({ queryKey: ['profile'] })
-      setTimeout(() => setMessage(null), 2500)
+      toast.success('Profile saved')
     },
     onError: () => {
-      setError('Could not save changes')
+      toast.error('Could not save changes')
     },
   })
 
@@ -88,10 +85,9 @@ export default function EditProfile() {
       const { apiClient } = await import('../api/client')
       await apiClient.patch('/users/me', { avatarUrl: value } as never)
       await refreshUser()
-      setMessage('Avatar updated')
-      setTimeout(() => setMessage(null), 2000)
+      toast.success('Avatar updated')
     } catch {
-      setError('Could not update avatar')
+      toast.error('Could not update avatar')
     }
   }
 
@@ -99,17 +95,16 @@ export default function EditProfile() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > MAX_AVATAR_BYTES) {
-      setError('Avatar must be 2 MB or smaller')
+      toast.error('Avatar must be 2 MB or smaller')
       return
     }
     try {
       const { avatarUrl } = await uploadAvatarApi(file)
       setSelectedAvatar(avatarUrl)
       await refreshUser()
-      setMessage('Avatar uploaded')
-      setTimeout(() => setMessage(null), 2000)
+      toast.success('Avatar uploaded')
     } catch {
-      setError('Avatar upload failed')
+      toast.error('Avatar upload failed')
     }
   }
 
@@ -121,7 +116,6 @@ export default function EditProfile() {
 
   function onSubmit(e: FormEvent) {
     e.preventDefault()
-    setError(null)
     saveMutation.mutate()
   }
 
@@ -130,7 +124,7 @@ export default function EditProfile() {
       const { url } = await createPortalApi()
       window.location.href = url
     } catch {
-      setError('Could not open billing portal')
+      toast.error('Could not open billing portal')
     }
   }
 
@@ -141,7 +135,7 @@ export default function EditProfile() {
       await logout()
       navigate('/')
     } catch {
-      setError('Could not delete account')
+      toast.error('Could not delete account')
     }
   }
 
@@ -296,9 +290,6 @@ export default function EditProfile() {
             </Field>
           </div>
         </div>
-
-        {error && <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>}
-        {message && <p className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">{message}</p>}
 
         <div className="flex items-center gap-3">
           <button type="submit" disabled={saveMutation.isPending} className="btn-primary">

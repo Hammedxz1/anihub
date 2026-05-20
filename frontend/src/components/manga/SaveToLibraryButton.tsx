@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import {
   addToLibraryApi,
   listLibraryApi,
@@ -41,12 +42,23 @@ export function SaveToLibraryButton({ mangaId, mangaTitle, coverUrl, totalChapte
   const saveMutation = useMutation({
     mutationFn: (status: LibraryStatus) =>
       addToLibraryApi({ mangaId, mangaTitle, coverUrl, status, totalChapters }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['library', 'all'] }),
+    onSuccess: (_, status) => {
+      qc.invalidateQueries({ queryKey: ['library', 'all'] })
+      qc.invalidateQueries({ queryKey: ['my-library'] })
+      const label = STATUSES.find((s) => s.value === status)?.label ?? status
+      toast.success(`Added to library · ${label}`)
+    },
+    onError: () => toast.error('Could not add to library'),
   })
 
   const removeMutation = useMutation({
     mutationFn: () => removeFromLibraryApi(mangaId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['library', 'all'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['library', 'all'] })
+      qc.invalidateQueries({ queryKey: ['my-library'] })
+      toast.success('Removed from library')
+    },
+    onError: () => toast.error('Could not remove from library'),
   })
 
   useEffect(() => {

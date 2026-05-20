@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { Avatar } from '../components/ui/Avatar'
 import { BarChart } from '../components/ui/BarChart'
 import { DonutChart } from '../components/ui/DonutChart'
+import { ProfileSkeleton } from '../components/ui/Skeleton'
 import { cn } from '../utils/cn'
 
 const DONUT_COLORS = ['#d946ef', '#22d3ee', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981']
@@ -68,11 +69,7 @@ export default function Profile() {
   }, [tags])
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-        <div className="h-40 animate-pulse rounded-3xl border border-surface-border bg-surface-card" />
-      </div>
-    )
+    return <ProfileSkeleton />
   }
 
   if (isPrivate) {

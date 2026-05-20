@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { deleteBookmarkApi, listBookmarksApi, type Bookmark } from '../api/bookmarks'
+import { BookmarkSkeleton } from '../components/ui/Skeleton'
 import { formatRelativeDate } from '../utils/mangadex'
 
 type BookmarkGroup = {
   mangaId: string
-  mangaTitle: string
   bookmarks: Bookmark[]
 }
 
@@ -14,7 +15,7 @@ function groupByManga(bookmarks: Bookmark[]): BookmarkGroup[] {
   for (const b of bookmarks) {
     let group = map.get(b.mangaId)
     if (!group) {
-      group = { mangaId: b.mangaId, mangaTitle: b.mangaId, bookmarks: [] }
+      group = { mangaId: b.mangaId, bookmarks: [] }
       map.set(b.mangaId, group)
     }
     group.bookmarks.push(b)
@@ -34,7 +35,11 @@ export default function Bookmarks() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteBookmarkApi,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['bookmarks'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['bookmarks'] })
+      toast.success('Bookmark removed')
+    },
+    onError: () => toast.error('Could not remove bookmark'),
   })
 
   const groups = groupByManga(bookmarks)
@@ -46,20 +51,18 @@ export default function Bookmarks() {
         {bookmarks.length} saved {bookmarks.length === 1 ? 'page' : 'pages'}
       </p>
 
-      {isLoading && (
-        <div className="mt-8 space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface-card" />
-          ))}
-        </div>
-      )}
+      {isLoading && <div className="mt-8"><BookmarkSkeleton /></div>}
 
       {!isLoading && bookmarks.length === 0 && (
         <div className="mt-16 text-center">
           <p className="text-4xl">🔖</p>
           <p className="mt-3 text-lg text-surface-muted">No bookmarks yet.</p>
           <p className="mt-1 text-sm text-surface-muted">
-            Press <kbd className="rounded border border-surface-border bg-surface-card px-1.5 py-0.5 text-xs font-mono">B</kbd> while reading to bookmark a page.
+            Press{' '}
+            <kbd className="rounded border border-surface-border bg-surface-card px-1.5 py-0.5 text-xs font-mono">
+              B
+            </kbd>{' '}
+            while reading to bookmark a page.
           </p>
           <Link to="/library" className="btn-primary mt-6 inline-flex">
             Browse Manga
@@ -74,39 +77,38 @@ export default function Bookmarks() {
               <div className="flex items-center gap-3">
                 <Link
                   to={`/manga/${group.mangaId}`}
-                  className="font-display text-xl tracking-wider text-white hover:text-primary-300 transition"
+                  className="font-display text-xl tracking-wider text-white transition hover:text-primary-300"
                 >
-                  {group.mangaTitle}
+                  {group.mangaId}
                 </Link>
-                <span className="rounded-full bg-surface-card border border-surface-border px-2 py-0.5 text-xs text-surface-muted">
+                <span className="rounded-full border border-surface-border bg-surface-card px-2 py-0.5 text-xs text-surface-muted">
                   {group.bookmarks.length}
                 </span>
               </div>
 
               <div className="mt-3 space-y-2">
                 {group.bookmarks.map((bm) => (
-                  <div
-                    key={bm.id}
-                    className="card flex items-center gap-4 p-4"
-                  >
-                    <div className="flex-1 min-w-0">
+                  <div key={bm.id} className="card flex items-center gap-4 p-4">
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-white">
-                          Chapter · Page {bm.pageNumber}
+                          Page {bm.pageNumber}
                         </span>
                         <span className="text-xs text-surface-muted">
                           {formatRelativeDate(bm.createdAt)}
                         </span>
                       </div>
                       {bm.note && (
-                        <p className="mt-1 text-sm text-white/70 line-clamp-2">{bm.note}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-white/70">{bm.note}</p>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex shrink-0 items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => navigate(`/read/${bm.chapterId}?page=${bm.pageNumber}&m=${bm.mangaId}`)}
+                        onClick={() =>
+                          navigate(`/read/${bm.chapterId}?page=${bm.pageNumber}&m=${bm.mangaId}`)
+                        }
                         className="btn-ghost text-xs"
                       >
                         Jump to page
@@ -116,7 +118,7 @@ export default function Bookmarks() {
                         onClick={() => deleteMutation.mutate(bm.id)}
                         disabled={deleteMutation.isPending}
                         aria-label="Delete bookmark"
-                        className="rounded-lg p-2 text-surface-muted hover:bg-surface-hover hover:text-red-300 transition"
+                        className="rounded-lg p-2 text-surface-muted transition hover:bg-surface-hover hover:text-red-300"
                       >
                         ✕
                       </button>

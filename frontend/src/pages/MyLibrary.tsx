@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import {
   listLibraryApi,
   removeFromLibraryApi,
@@ -8,6 +9,7 @@ import {
   type LibraryItem,
   type LibraryStatus,
 } from '../api/library'
+import { LibraryGridSkeleton } from '../components/ui/Skeleton'
 import { cn } from '../utils/cn'
 
 const TABS: { value: LibraryStatus | 'all'; label: string }[] = [
@@ -42,12 +44,21 @@ export default function MyLibrary() {
   const updateMutation = useMutation({
     mutationFn: ({ mangaId, status }: { mangaId: string; status: LibraryStatus }) =>
       updateLibraryApi(mangaId, { status }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-library'] }),
+    onSuccess: (_, { status }) => {
+      qc.invalidateQueries({ queryKey: ['my-library'] })
+      const label = STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status
+      toast.success(`Moved to ${label}`)
+    },
+    onError: () => toast.error('Could not update status'),
   })
 
   const removeMutation = useMutation({
     mutationFn: (mangaId: string) => removeFromLibraryApi(mangaId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-library'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-library'] })
+      toast.success('Removed from library')
+    },
+    onError: () => toast.error('Could not remove manga'),
   })
 
   return (
@@ -82,13 +93,7 @@ export default function MyLibrary() {
         })}
       </div>
 
-      {isLoading && (
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl bg-surface-card aspect-[2/3]" />
-          ))}
-        </div>
-      )}
+      {isLoading && <div className="mt-6"><LibraryGridSkeleton count={10} /></div>}
 
       {!isLoading && filtered.length === 0 && (
         <div className="mt-16 text-center">
@@ -144,7 +149,6 @@ function LibraryCard({
         </div>
       </Link>
 
-      {/* Progress bar */}
       {progress !== null && (
         <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-border">
           <div
@@ -166,7 +170,6 @@ function LibraryCard({
           )}
         </Link>
 
-        {/* Context menu */}
         <div className="relative">
           <button
             type="button"
